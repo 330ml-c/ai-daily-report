@@ -16,7 +16,7 @@ from sender import EmailSender
 def main():
     """主函数"""
     print("=" * 50)
-    print("🤖 GitHub AI 项目日报生成器")
+    print("🤖 GitHub AI 项目日报生成器 v2.0")
     print("=" * 50)
 
     # 加载环境变量

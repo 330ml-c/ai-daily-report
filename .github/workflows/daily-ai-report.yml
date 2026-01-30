@@ -15,6 +15,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show git log
+        run: git log --oneline -3
 
       - name: Set up Python
         uses: actions/setup-python@v5

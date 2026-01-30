@@ -6,7 +6,7 @@
 import os
 from datetime import datetime
 from typing import List, Dict, Any
-from jinja2 import Template
+from jinja2 import Environment, FileSystemLoader
 import resend
 
 
@@ -247,14 +247,15 @@ class EmailSender:
 </html>
         """
 
-        # 创建模板并添加自定义过滤器
-        template = Template(template_str)
-
-        # 添加自定义过滤器
-        template.environment.filters["format_number"] = lambda x: f"{x:,}"
-        template.environment.filters["format_date"] = lambda x: datetime.fromisoformat(
+        # 创建环境并注册过滤器
+        env = Environment()
+        env.filters["format_number"] = lambda x: f"{x:,}"
+        env.filters["format_date"] = lambda x: datetime.fromisoformat(
             x
         ).strftime("%Y-%m-%d")
+
+        # 从字符串创建模板
+        template = env.from_string(template_str)
 
         # 渲染模板
         return template.render(

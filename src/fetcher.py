@@ -110,41 +110,51 @@ class GitHubFetcher:
         Returns:
             项目信息列表，按活跃度排序
         """
-        query = self._build_search_query()
+        all_projects = {}
 
-        print(f"🔍 搜索查询: {query}")
+        # 分别搜索每个主题，然后合并去重
+        for topic in self.SEARCH_TOPICS[:4]:  # 只搜索前4个主题以节省 API 配额
+            query = f"topic:{topic}"
 
-        # 搜索仓库
-        repositories = self.github.search_repositories(
-            query=query,
-            sort="updated",
-            order="desc",
-            **{"per_page": limit}
-        )
+            print(f"🔍 搜索主题: {topic}")
 
-        projects = []
-        for repo in repositories:
             try:
-                # 检查速率限制
-                remaining = self.github.get_rate_limit().search.remaining
-                if remaining < 10:
-                    print(f"⚠️  API 速率限制即将耗尽，剩余: {remaining}")
-                    break
+                # 搜索仓库
+                repositories = self.github.search_repositories(
+                    query=query,
+                    sort="updated",
+                    order="desc",
+                    **{"per_page": 20}  # 每个主题取 20 个
+                )
 
-                info = self._extract_repo_info(repo)
-                info["activity_score"] = self._calculate_activity_score(repo)
-                projects.append(info)
+                for repo in repositories:
+                    try:
+                        # 检查速率限制
+                        remaining = self.github.get_rate_limit().search.remaining
+                        if remaining < 50:
+                            print(f"⚠️  API 速率限制即将耗尽，剩余: {remaining}")
+                            break
 
-                print(f"✓ 获取: {info['name']} (⭐ {info['stars']})")
+                        # 使用项目名称作为唯一标识去重
+                        if repo.full_name not in all_projects:
+                            info = self._extract_repo_info(repo)
+                            info["activity_score"] = self._calculate_activity_score(repo)
+                            all_projects[repo.full_name] = info
+                            print(f"  ✓ 获取: {info['name']} (⭐ {info['stars']})")
+
+                    except Exception as e:
+                        print(f"  ❌ 获取仓库信息失败 {repo.full_name}: {e}")
+                        continue
 
             except Exception as e:
-                print(f"❌ 获取仓库信息失败 {repo.full_name}: {e}")
+                print(f"❌ 搜索主题 {topic} 失败: {e}")
                 continue
 
-        # 按活跃度排序
+        # 转换为列表并按活跃度排序
+        projects = list(all_projects.values())
         projects.sort(key=lambda x: x["activity_score"], reverse=True)
 
-        return projects
+        return projects[:limit]
 
     def get_readme_content(self, repo_name: str) -> str:
         """

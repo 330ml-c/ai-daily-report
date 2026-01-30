@@ -23,7 +23,8 @@ def main():
     load_dotenv()
 
     # 从环境变量获取配置
-    github_token = os.getenv("GITHUB_TOKEN")
+    # 优先使用 Personal Access Token，因为 GITHUB_TOKEN 有搜索限制
+    github_token = os.getenv("GITHUB_PAT") or os.getenv("GITHUB_TOKEN")
     resend_api_key = os.getenv("RESEND_API_KEY")
     to_email = os.getenv("TO_EMAIL")
 

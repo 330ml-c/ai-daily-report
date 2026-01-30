@@ -127,7 +127,14 @@ class GitHubFetcher:
                     **{"per_page": 20}  # 每个主题取 20 个
                 )
 
-                for repo in repositories:
+                # 获取总数
+                total_count = repositories.totalCount
+                print(f"  📊 找到 {total_count} 个仓库")
+
+                repo_list = list(repositories)
+                print(f"  📦 获取到 {len(repo_list)} 个仓库对象")
+
+                for repo in repo_list:
                     try:
                         # 检查速率限制
                         remaining = self.github.get_rate_limit().search.remaining

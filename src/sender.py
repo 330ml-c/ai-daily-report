@@ -292,8 +292,11 @@ class EmailSender:
                 print("📄 HTML 报告已保存到 report.html")
 
             # 发送邮件
+            # 注意：需要在 Resend 验证域名后才能发送
+            # 免费测试：只能发送到注册 Resend 的邮箱
+            # 完整功能：需在 https://resend.com/domains 添加并验证你的域名
             params = {
-                "from": "AI Daily Report <noreply@yourdomain.com>",
+                "from": "AI Daily Report <onboarding@resend.dev>",
                 "to": [to_email],
                 "subject": f"🤖 GitHub AI 项目日报 - {datetime.now().strftime('%Y-%m-%d')}",
                 "html": html_content,

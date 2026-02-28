@@ -1,15 +1,13 @@
-# GitHub AI Coding 项目日报
+# GitHub AI 项目日报
 
-自动抓取 GitHub 上最活跃的 **AI Coding** 相关项目，每天早上发送邮件报告。
+自动抓取 GitHub 上最活跃的 AI 相关项目，每天早上发送邮件报告。
 
 ## 功能特点
 
-- 🔍 自动搜索 GitHub 上的 AI Coding 热门项目（MCP、Agent、LangChain、Claude、Copilot 等）
-- 📈 **智能增长速度算法**：优先推荐短时间 star 增长快的项目，兼顾成熟热门项目
-- 💾 **历史缓存对比**：每次运行后缓存 star 数据，下次计算真实增长速度
-- 📝 智能提取项目简介（保留短代码块）
+- 🔍 自动搜索 GitHub 上的 AI 热门项目（LLM、MCP、LangChain、Agent 等）
+- 📊 综合计算活跃度（stars、forks、更新频率、issue 数量）
+- 📝 智能提取项目简介（基于 README 内容）
 - 📧 每天早上 8:00 自动发送 HTML 邮件报告
-- 🎨 精美邮件模板，支持代码高亮显示
 - 🚀 基于 GitHub Actions，无需服务器
 
 ## 快速开始
@@ -74,13 +72,11 @@ python src/main.py
 │   └── workflows/
 │       └── daily-ai-report.yml    # GitHub Actions 配置
 ├── src/
-│   ├── cache.py                   # Star 历史数据缓存模块
-│   ├── fetcher.py                 # GitHub API 数据抓取（含增长速度计算）
-│   ├── summarizer.py              # README 内容总结（保留代码块）
-│   ├── sender.py                  # 邮件发送（支持代码高亮）
+│   ├── fetcher.py                 # GitHub API 数据抓取（使用 requests）
+│   ├── summarizer.py              # README 内容总结
+│   ├── sender.py                  # 邮件发送
 │   ├── main.py                    # 主程序入口
 │   └── test_search_simple.py      # API 测试脚本
-├── star_cache.json                # Star 历史缓存（自动生成）
 ├── requirements.txt               # Python 依赖（requests、jinja2、resend）
 ├── .env.example                   # 环境变量示例
 └── README.md                      # 项目文档
@@ -91,50 +87,33 @@ python src/main.py
 ### 1. 数据抓取
 
 - 使用 `requests` 直接调用 GitHub Search API
-- 采用**双阶段检索**：
-  - 第一阶段：按通道召回（`vibecoding` / `codex` / `claude`）
-  - 第二阶段：按综合优先级分数精排
-- 每个通道使用 2 条查询语句，每条最多获取 20 个仓库，最终合并去重
+- 分别搜索多个主题（llm、mcp、langchain、agent）后合并去重
+- 每个主题获取 20 个最新项目
+- 按更新时间排序
 
-### 2. 优先级评分模型
+### 2. 活跃度计算
 
-**核心创新**：先保证主题相关性，再综合增长速度与项目健康度
+综合多个因素计算项目活跃度：
 
 ```python
-# 有缓存时：计算真实增长速度
-if cached_stars:
-    growth_rate = (current_stars - cached_stars) / days_diff
-else:
-    # 无缓存时：近似估算
-    growth_rate = (stars / days_since_creation) * recency_bonus
-
-# 子分数
-relevance_score = 关键词命中分(name/topics/description)
-growth_score = star_velocity 映射分
-quality_score = 最近更新时间 + star 稳定度
-
-# 综合优先级分数
-priority_score = relevance_score * 0.55 + growth_score * 0.30 + quality_score * 0.15
+activity_score = (
+    stars × 0.3 +
+    forks × 0.2 +
+    近期更新分数 × 10 +
+    open_issues × 0.2
+)
 ```
-
-**工作原理**：
-- **首次运行**：使用"平均 star/天 × 更新加成"估算
-- **后续运行**：使用缓存的 star 数据计算真实增长速度
-- **排序结果**：优先展示 `vibecoding` / `codex` / `claude` 高相关项目，再平衡增长和质量
 
 ### 3. 摘要生成
 
 - 通过 GitHub API 获取项目的 README.md 内容（base64 解码）
-- **保留短代码块**（3 行以内），移除长代码块
-- 清理 Markdown 格式（图片、长链接等）
+- 清理 Markdown 格式（图片、代码块等）
 - 提取有意义的简介段落
-- 限制在 500 字符以内
+- 限制在 300 字符以内
 
 ### 4. 邮件发送
 
-- 使用 Jinja2 生成精美的 HTML 邮件模板
-- **支持代码块高亮显示**
-- 显示 star 增长速度（stars/天）
+- 使用 Jinja2 的 `Environment` 生成 HTML 邮件模板
 - 通过 Resend API 发送邮件
 - 失败时保存 HTML 文件作为 artifact
 
@@ -142,33 +121,16 @@ priority_score = relevance_score * 0.55 + growth_score * 0.30 + quality_score * 
 
 ### 修改搜索主题
 
-编辑 `src/fetcher.py` 中的 `SEARCH_CHANNELS` 配置：
+编辑 `src/fetcher.py` 中的 `SEARCH_TOPICS` 列表：
 
 ```python
-SEARCH_CHANNELS = {
-    "vibecoding": [
-        '(vibecoding OR "vibe coding") in:name,description,readme archived:false stars:>10',
-        "topic:vibecoding archived:false stars:>10",
-    ],
-    "codex": [
-        '(codex OR "openai codex") in:name,description,readme archived:false stars:>10',
-    ],
-    "claude": [
-        '(claude OR "claude code") in:name,description,readme archived:false stars:>10',
-    ],
-}
-```
-
-### 调整活跃度公式
-
-编辑 `src/fetcher.py` 中的 `PRIORITY_WEIGHTS`：
-
-```python
-PRIORITY_WEIGHTS = {
-    "relevance": 0.55,
-    "growth": 0.30,
-    "quality": 0.15,
-}
+SEARCH_TOPICS = [
+    "llm",
+    "mcp",
+    "langchain",
+    "agent",
+    # 添加你感兴趣的主题
+]
 ```
 
 ### 修改发送时间
@@ -220,29 +182,6 @@ A: 修改 cron 表达式。例如：
 ### Q: 搜索结果为空？
 
 A: 确保配置了 `GH_PAT` Secret。GitHub Actions 提供的 `GITHUB_TOKEN` 有搜索 API 限制。
-
-### Q: star_cache.json 是什么？
-
-A: 这是 star 历史缓存文件，用于计算真实的 star 增长速度。首次运行后会自动生成，每次运行后更新。删除它将重新开始计算。
-
-### Q: 邮件中的代码块显示不正常？
-
-A: 已更新邮件模板支持代码块样式。如果仍有问题，请检查邮件客户端是否支持 CSS（部分邮件客户端对 CSS 支持有限）。
-
-## 更新日志
-
-### v2.0 (当前版本)
-
-- ✨ 新增：Star 增长速度算法，优先推荐增长快的项目
-- ✨ 新增：历史缓存对比，计算真实增长速度
-- ✨ 新增：邮件模板支持代码块高亮显示
-- 🎯 优化：搜索关键词聚焦 AI Coding 领域
-- 🎯 优化：保留摘要中的短代码块
-- 🐛 修复：Python 3.8 兼容性问题
-
-### v1.0
-
-- 基础功能：GitHub 项目搜索和邮件发送
 
 ## 许可证
 

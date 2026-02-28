@@ -126,7 +126,7 @@ priority_score = relevance_score * 0.55 + growth_score * 0.30 + quality_score * 
 
 - 通过 GitHub API 获取项目的 README.md 内容（base64 解码）
 - **保留短代码块**（3 行以内），移除长代码块
-- 清理 Markdown 格式（图片、长链接等）
+- 清理 Markdown 格式（图片、空链接、`&nbsp;` 等噪声）
 - 提取有意义的简介段落
 - 限制在 500 字符以内
 
@@ -134,6 +134,7 @@ priority_score = relevance_score * 0.55 + growth_score * 0.30 + quality_score * 
 
 - 使用 Jinja2 生成精美的 HTML 邮件模板
 - **支持代码块高亮显示**
+- 支持 Markdown 链接、行内代码、粗体斜体渲染
 - 显示 star 增长速度（stars/天）
 - 通过 Resend API 发送邮件
 - 失败时保存 HTML 文件作为 artifact

@@ -63,6 +63,9 @@ class ReadmeSummarizer:
         """
         清理 Markdown 内容，保留代码块
         """
+        # 统一常见 HTML 空白实体
+        content = content.replace("&nbsp;", " ")
+
         # 移除图片
         content = re.sub(r'!\[.*?\]\(.*?\)', '', content)
 
@@ -84,10 +87,15 @@ class ReadmeSummarizer:
         )
 
         # 保留行内代码（不处理）
-        # 移除过长的链接
-        content = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', content)
+        # 处理空链接，避免渲染成无意义 [](...)
+        content = re.sub(r'\[\s*\]\((https?://[^)]+)\)', r'\1', content)
+        # 保留链接文本和 URL 信息，避免信息丢失
+        content = re.sub(r'\[([^\]]+)\]\((https?://[^)]+)\)', r'\1 (\2)', content)
         # 移除 HTML 标签
         content = re.sub(r'<[^>]+>', '', content)
+        # 清理多余空格
+        content = re.sub(r'[ \t]+', ' ', content)
+        content = re.sub(r'\n{3,}', '\n\n', content)
 
         return content.strip()
 

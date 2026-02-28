@@ -69,7 +69,7 @@ def main():
 
         # 生成摘要
         if readme:
-            summary = summarizer.summarize(readme, max_length=300)
+            summary = summarizer.summarize(readme, max_length=500)
             project["summary"] = summary
         else:
             project["summary"] = project.get("description", "")

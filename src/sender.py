@@ -3,11 +3,10 @@
 负责生成 HTML 邮件并通过 Resend API 发送
 """
 
-import os
 import re
 from datetime import datetime
 from typing import List, Dict, Any
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment
 import resend
 
 
@@ -44,20 +43,49 @@ class EmailSender:
         """
         # 先转义 HTML
         html = self._escape_html(summary)
+        # 清理常见实体残留
+        html = html.replace("&amp;nbsp;", " ").replace("&#160;", " ")
 
-        # 转换代码块 ```code``` 为 <pre><code>
+        # 先提取代码块占位，避免后续换行转换污染代码块
+        code_blocks = []
+
+        def replace_code_block(match):
+            lang = match.group(1)
+            code = match.group(2).strip("\n")
+            code_blocks.append(f'<pre><code class="language-{lang}">{code}</code></pre>')
+            return f"@@CODE_BLOCK_{len(code_blocks) - 1}@@"
+
         html = re.sub(
             r'```(\w*)\n?(.*?)```',
-            lambda m: f'<pre><code class="language-{m.group(1)}">{m.group(2)}</code></pre>',
+            replace_code_block,
             html,
             flags=re.DOTALL
         )
 
+        # 转换 Markdown 链接 [text](url)
+        html = re.sub(
+            r'\[([^\]]+)\]\((https?://[^)\s]+)\)',
+            r'<a href="\2" target="_blank">\1</a>',
+            html
+        )
+        # 转换纯 URL
+        html = re.sub(
+            r'(?<!["\'>])(https?://[^\s<]+)',
+            r'<a href="\1" target="_blank">\1</a>',
+            html
+        )
         # 转换行内代码 `code` 为 <code>
         html = re.sub(r'`([^`]+)`', r'<code>\1</code>', html)
+        # 转换粗体与斜体
+        html = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', html)
+        html = re.sub(r'\*([^*\n]+)\*', r'<em>\1</em>', html)
 
         # 转换换行
         html = html.replace('\n', '<br>')
+
+        # 恢复代码块
+        for idx, block in enumerate(code_blocks):
+            html = html.replace(f"@@CODE_BLOCK_{idx}@@", block)
 
         return html
 
@@ -171,6 +199,11 @@ class EmailSender:
             border-radius: 0 4px 4px 0;
             font-size: 14px;
             color: #444;
+        }
+        .repo-summary a {
+            color: #0366d6;
+            text-decoration: underline;
+            word-break: break-all;
         }
         /* 代码块样式 */
         .repo-summary pre {

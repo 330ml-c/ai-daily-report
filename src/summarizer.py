@@ -59,6 +59,34 @@ class ReadmeSummarizer:
         summary = "\n\n".join(paragraphs)
         return self._truncate_to_length(summary, max_length)
 
+    def is_meaningful_summary(self, summary: str) -> bool:
+        """
+        判断摘要是否有意义，过滤目录、分隔线等噪声内容
+        """
+        if not summary:
+            return False
+
+        text = summary.strip()
+        if len(text) < 20:
+            return False
+
+        # 仅包含符号或分隔线的内容视为无效
+        if re.fullmatch(r'[-_=*`#\s.]+', text):
+            return False
+
+        lowered = text.lower()
+        noise_keywords = [
+            "table of contents",
+            "目录",
+            "language",
+            "license",
+            "contributing",
+        ]
+        if any(keyword in lowered for keyword in noise_keywords) and len(text) < 60:
+            return False
+
+        return True
+
     def _clean_content(self, content: str) -> str:
         """
         清理 Markdown 内容，保留代码块

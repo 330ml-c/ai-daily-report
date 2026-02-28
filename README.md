@@ -129,6 +129,7 @@ priority_score = relevance_score * 0.55 + growth_score * 0.30 + quality_score * 
 - 清理 Markdown 格式（图片、空链接、`&nbsp;` 等噪声）
 - 提取有意义的简介段落
 - 限制在 500 字符以内
+- 展示策略：优先使用仓库 `description`，仅在缺失时使用 README 摘要补充
 
 ### 4. 邮件发送
 

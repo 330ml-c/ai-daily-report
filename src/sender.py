@@ -301,7 +301,7 @@ class EmailSender:
             <p class="repo-description">{{ repo.description }}</p>
             {% endif %}
 
-            {% if repo.summary %}
+            {% if repo.show_summary %}
             <div class="repo-summary">
                 <strong>📋 项目简介：</strong>{{ repo.summary_html | safe }}
             </div>
@@ -349,8 +349,11 @@ class EmailSender:
 
         # 为每个项目生成 HTML 格式的摘要
         for project in projects:
-            if 'summary' in project and project['summary']:
-                project['summary_html'] = self._format_summary_to_html(project['summary'])
+            description = (project.get("description") or "").strip()
+            summary = (project.get("summary") or "").strip()
+            project["show_summary"] = bool(summary and summary != description)
+            if project["show_summary"]:
+                project['summary_html'] = self._format_summary_to_html(summary)
 
         # 创建环境并注册过滤器
         env = Environment()

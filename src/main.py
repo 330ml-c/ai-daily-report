@@ -64,15 +64,20 @@ def main():
     for i, project in enumerate(top_projects, 1):
         print(f"  [{i}/{len(top_projects)}] 处理: {project['name']}")
 
+        description = (project.get("description") or "").strip()
+        project["summary"] = description
+
         # 获取 README 内容
         readme = fetcher.get_readme_content(project["name"])
 
-        # 生成摘要
-        if readme:
-            summary = summarizer.summarize(readme, max_length=500)
-            project["summary"] = summary
-        else:
-            project["summary"] = project.get("description", "")
+        # 生成 README 补充摘要
+        if readme and not description:
+            readme_summary = summarizer.summarize(readme, max_length=500)
+            if summarizer.is_meaningful_summary(readme_summary):
+                project["summary"] = readme_summary
+
+        if not project["summary"]:
+            project["summary"] = "暂无项目描述"
 
     print("✅ 摘要生成完成")
     print()

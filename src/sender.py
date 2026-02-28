@@ -4,6 +4,7 @@
 """
 
 import os
+import re
 from datetime import datetime
 from typing import List, Dict, Any
 from jinja2 import Environment, FileSystemLoader
@@ -21,6 +22,44 @@ class EmailSender:
             api_key: Resend API 密钥
         """
         resend.api_key = api_key
+
+    def _escape_html(self, text: str) -> str:
+        """转义 HTML 特殊字符"""
+        return (text
+                .replace('&', '&amp;')
+                .replace('<', '&lt;')
+                .replace('>', '&gt;')
+                .replace('"', '&quot;')
+                .replace("'", '&#x27;'))
+
+    def _format_summary_to_html(self, summary: str) -> str:
+        """
+        将摘要文本转换为 HTML，保留代码块格式
+
+        Args:
+            summary: 原始摘要文本
+
+        Returns:
+            HTML 格式的摘要
+        """
+        # 先转义 HTML
+        html = self._escape_html(summary)
+
+        # 转换代码块 ```code``` 为 <pre><code>
+        html = re.sub(
+            r'```(\w*)\n?(.*?)```',
+            lambda m: f'<pre><code class="language-{m.group(1)}">{m.group(2)}</code></pre>',
+            html,
+            flags=re.DOTALL
+        )
+
+        # 转换行内代码 `code` 为 <code>
+        html = re.sub(r'`([^`]+)`', r'<code>\1</code>', html)
+
+        # 转换换行
+        html = html.replace('\n', '<br>')
+
+        return html
 
     def _generate_html_content(self, projects: List[Dict[str, Any]]) -> str:
         """
@@ -133,6 +172,28 @@ class EmailSender:
             font-size: 14px;
             color: #444;
         }
+        /* 代码块样式 */
+        .repo-summary pre {
+            background-color: #f6f8fa;
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            padding: 12px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .repo-summary code {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 13px;
+            line-height: 1.45;
+            background-color: #f6f8fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .repo-summary pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+        }
         .repo-stats {
             display: flex;
             gap: 20px;
@@ -148,6 +209,10 @@ class EmailSender:
         }
         .stat-icon {
             font-size: 16px;
+        }
+        .stat-value {
+            font-weight: 600;
+            color: #0366d6;
         }
         .repo-topics {
             margin-top: 12px;
@@ -185,7 +250,7 @@ class EmailSender:
 
         <div class="intro">
             <strong>今日摘要：</strong>为您精选 {{ total_count }} 个最活跃的 AI 相关项目，
-            涵盖 LLM、MCP、LangChain、Agent 等热门领域。
+            涵盖 MCP、Agent、LangChain 等 AI Coding 热门领域。
         </div>
 
         {% for repo in projects %}
@@ -205,23 +270,25 @@ class EmailSender:
 
             {% if repo.summary %}
             <div class="repo-summary">
-                <strong>📋 项目简介：</strong>{{ repo.summary }}
+                <strong>📋 项目简介：</strong>{{ repo.summary_html | safe }}
             </div>
             {% endif %}
 
             <div class="repo-stats">
                 <div class="stat">
                     <span class="stat-icon">⭐</span>
-                    <span>{{ repo.stars | format_number }} Stars</span>
+                    <span><span class="stat-value">{{ repo.stars | format_number }}</span> Stars</span>
                 </div>
                 <div class="stat">
                     <span class="stat-icon">🍴</span>
                     <span>{{ repo.forks | format_number }} Forks</span>
                 </div>
+                {% if repo.star_velocity %}
                 <div class="stat">
-                    <span class="stat-icon">🔧</span>
-                    <span>{{ repo.open_issues }} Issues</span>
+                    <span class="stat-icon">📈</span>
+                    <span><span class="stat-value">{{ repo.star_velocity }}</span> stars/天</span>
                 </div>
+                {% endif %}
                 <div class="stat">
                     <span class="stat-icon">🕒</span>
                     <span>更新于 {{ repo.updated_at | format_date }}</span>
@@ -246,6 +313,11 @@ class EmailSender:
 </body>
 </html>
         """
+
+        # 为每个项目生成 HTML 格式的摘要
+        for project in projects:
+            if 'summary' in project and project['summary']:
+                project['summary_html'] = self._format_summary_to_html(project['summary'])
 
         # 创建环境并注册过滤器
         env = Environment()

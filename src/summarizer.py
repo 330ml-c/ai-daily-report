@@ -23,7 +23,7 @@ class ReadmeSummarizer:
         "References",
     ]
 
-    def summarize(self, readme_content: str, max_length: int = 300) -> str:
+    def summarize(self, readme_content: str, max_length: int = 500) -> str:
         """
         总结 README 内容
 
@@ -37,12 +37,12 @@ class ReadmeSummarizer:
             max_length: 最大长度（字符数）
 
         Returns:
-            摘要文本
+            摘要文本（保留 Markdown 代码块格式）
         """
         if not readme_content:
             return "暂无项目描述"
 
-        # 清理内容
+        # 清理内容（保留代码块）
         content = self._clean_content(readme_content)
 
         # 如果内容很短，直接返回
@@ -60,13 +60,30 @@ class ReadmeSummarizer:
         return self._truncate_to_length(summary, max_length)
 
     def _clean_content(self, content: str) -> str:
-        """清理 Markdown 内容，移除不必要的元素"""
+        """
+        清理 Markdown 内容，保留代码块
+        """
         # 移除图片
         content = re.sub(r'!\[.*?\]\(.*?\)', '', content)
-        # 移除代码块（对于摘要不太重要）
-        content = re.sub(r'```.*?```', '', content, flags=re.DOTALL)
-        # 移除行内代码
-        content = re.sub(r'`([^`]+)`', r'\1', content)
+
+        # 保留短代码块（单行或3行以内），移除过长的代码块
+        def keep_short_codeblocks(match):
+            code = match.group(2)
+            lines = code.split('\n')
+            # 如果代码块很短（3行以内），保留它
+            if len(lines) <= 3:
+                return match.group(0)  # 保留原始代码块
+            else:
+                return ''  # 移除长代码块
+
+        content = re.sub(
+            r'```(\w*)\n(.*?)```',
+            keep_short_codeblocks,
+            content,
+            flags=re.DOTALL
+        )
+
+        # 保留行内代码（不处理）
         # 移除过长的链接
         content = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', content)
         # 移除 HTML 标签
@@ -123,7 +140,7 @@ class ReadmeSummarizer:
 
     def _extract_meaningful_paragraphs(
         self, content: str, max_paragraphs: int = 3
-    ) -> list[str]:
+    ) -> list:
         """提取有意义的段落"""
         lines = content.split("\n")
         paragraphs = []

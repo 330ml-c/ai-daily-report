@@ -1,5 +1,12 @@
 # 环境变量文件
 .env
+.env.*
+!.env.example
+
+# Git / GitHub / Claude 配置
+.git/
+.github/
+.claude/
 
 # Python
 __pycache__/
